@@ -39,6 +39,7 @@ dependencies:
   permission_handler: ^11.3.1
   pdf_manipulator: ^0.5.9
   image_picker: ^1.1.2
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_test:
