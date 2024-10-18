@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:pdf_manipulator/pdf_manipulator.dart';
@@ -18,6 +19,10 @@ class _HomePageState extends State<HomePage> {
   List<String> imagePathList = [];
   final ImagePicker picker = ImagePicker();
   int imageCount = 0;
+  String? codeDialog;
+  String? valueText;
+  bool fileNameInputted = false;
+  final TextEditingController _textFieldController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +56,51 @@ class _HomePageState extends State<HomePage> {
         ));
   }
 
+  Future<void> _displayTextInputDialog(BuildContext context) async {
+    return showDialog(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text('FileName'),
+            content: TextField(
+              onChanged: (value) {
+                setState(() {
+                  valueText = value;
+                });
+              },
+              controller: _textFieldController,
+              decoration:
+              const InputDecoration(hintText: "Input"),
+            ),
+            actions: <Widget>[
+              MaterialButton(
+                color: Colors.red,
+                textColor: Colors.white,
+                child: const Text('CANCEL'),
+                onPressed: () {
+                  setState(() {
+                    fileNameInputted = false;
+                    Navigator.pop(context);
+                  });
+                },
+              ),
+              MaterialButton(
+                color: Colors.green,
+                textColor: Colors.white,
+                child: const Text('OK'),
+                onPressed: () {
+                  setState(() {
+                    fileNameInputted = true;
+                    codeDialog = valueText;
+                    Navigator.pop(context);
+                  });
+                },
+              ),
+            ],
+          );
+        });
+  }
+
   _getImageColumn() {
     return Column(
       children: [
@@ -69,27 +119,45 @@ class _HomePageState extends State<HomePage> {
   }
 
   _generatePDF() async {
-    if (await Permission.storage.request().isGranted ||
-        await Permission.storage.isGranted) {
+    if ((imageList.isNotEmpty) && (await Permission.storage.request().isGranted ||
+        await Permission.storage.isGranted) ) {
       List<String>? pdfsPaths;
+      pdfsPaths = await PdfManipulator().imagesToPdfs(
+          params: ImagesToPDFsParams(
+        imagesPaths: imagePathList,
+        createSinglePdf: false,
+      ));
+      String? mergedPdfPath = pdfsPaths?[0];
       if (imageList.length > 1) {
-          pdfsPaths = await PdfManipulator().imagesToPdfs(
-            params: ImagesToPDFsParams(
-              imagesPaths: imagePathList,
-              createSinglePdf: false,
-            ));
-      } else {
-        pdfsPaths = await PdfManipulator().imagesToPdfs(
-            params: ImagesToPDFsParams(
-              imagesPaths: imagePathList,
-              createSinglePdf: false,
-            ));
+        mergedPdfPath = await PdfManipulator().mergePDFs(
+          params: PDFMergerParams(pdfsPaths: pdfsPaths!),
+        );
       }
-      String? mergedPdfPath = await PdfManipulator().mergePDFs(
-        params: PDFMergerParams(pdfsPaths: pdfsPaths!),
-      );
       File tmp = File(mergedPdfPath!);
-      tmp.writeAsString("/storage/emulated/0/Download/PDFConverter/outp.pdf");
+      await _dialog();
+      if (fileNameInputted) await saveFile(tmp);
+    }
+  }
+
+  _dialog() async{
+    await _displayTextInputDialog(context);
+  }
+
+  Future<void> saveFile(File file) async {
+    if (!await FlutterFileDialog.isPickDirectorySupported()) {
+      return;
+    }
+
+    final pickedDirectory = await FlutterFileDialog.pickDirectory();
+
+    if (pickedDirectory != null) {
+      await FlutterFileDialog.saveFileToDirectory(
+        directory: pickedDirectory,
+        data: file.readAsBytesSync(),
+        mimeType: "image/pdf",
+        fileName: "${_textFieldController.text.trim()}.pdf",
+        replace: true,
+      );
     }
   }
 
@@ -97,6 +165,8 @@ class _HomePageState extends State<HomePage> {
     imageCount = 0;
     imageList = [];
     imagePathList = [];
+    _textFieldController.text = "";
+    fileNameInputted = false;
     setState(() {});
   }
 
