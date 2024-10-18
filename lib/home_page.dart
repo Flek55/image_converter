@@ -98,7 +98,6 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 children: [
                   ElevatedButton(
-
                     ///Из галереи
                     onPressed: () async {
                       Navigator.pop(context);
