@@ -6,6 +6,8 @@ import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pdf_manipulator/pdf_manipulator.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:image/image.dart' as img;
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -56,6 +58,8 @@ class _HomePageState extends State<HomePage> {
         ));
   }
 
+
+
   Future<void> _displayTextInputDialog(BuildContext context) async {
     return showDialog(
         context: context,
@@ -69,8 +73,7 @@ class _HomePageState extends State<HomePage> {
                 });
               },
               controller: _textFieldController,
-              decoration:
-              const InputDecoration(hintText: "Input"),
+              decoration: const InputDecoration(),
             ),
             actions: <Widget>[
               MaterialButton(
@@ -119,28 +122,31 @@ class _HomePageState extends State<HomePage> {
   }
 
   _generatePDF() async {
-    if ((imageList.isNotEmpty) && (await Permission.storage.request().isGranted ||
-        await Permission.storage.isGranted) ) {
-      List<String>? pdfsPaths;
-      pdfsPaths = await PdfManipulator().imagesToPdfs(
-          params: ImagesToPDFsParams(
-        imagesPaths: imagePathList,
-        createSinglePdf: false,
-      ));
-      String? mergedPdfPath = pdfsPaths?[0];
-      if (imageList.length > 1) {
-        mergedPdfPath = await PdfManipulator().mergePDFs(
-          params: PDFMergerParams(pdfsPaths: pdfsPaths!),
-        );
+    if (imageList.isNotEmpty) {
+      await _displayTextInputDialog(context);
+      if (await Permission.storage.request().isGranted ||
+          await Permission.storage.isGranted) {
+        List<String>? pdfsPaths;
+        for (String img in imagePathList) {
+          print(img);
+          //Image tmp = Image.file(File(img));
+          img.endsWith(".jpeg");
+        }
+        pdfsPaths = await PdfManipulator().imagesToPdfs(
+            params: ImagesToPDFsParams(
+          imagesPaths: imagePathList,
+          createSinglePdf: false,
+        ));
+        String? mergedPdfPath = pdfsPaths?[0];
+        if (imageList.length > 1) {
+          mergedPdfPath = await PdfManipulator().mergePDFs(
+            params: PDFMergerParams(pdfsPaths: pdfsPaths!),
+          );
+        }
+        File tmp = File(mergedPdfPath!);
+        await saveFile(tmp);
       }
-      File tmp = File(mergedPdfPath!);
-      await _dialog();
-      if (fileNameInputted) await saveFile(tmp);
     }
-  }
-
-  _dialog() async{
-    await _displayTextInputDialog(context);
   }
 
   Future<void> saveFile(File file) async {
@@ -178,6 +184,32 @@ class _HomePageState extends State<HomePage> {
       imagePathList.add(img.path);
       setState(() {});
     }
+  }
+
+  void pngToJpg(String imagePath) {
+    img.Image image = img.decodeImage(
+        File(imagePath).readAsBytesSync())!;
+
+    img.Image thumbnail = img.copyResize(image, height: 200);
+
+    if (thumbnail.numChannels == 4) {
+      var imageDst = img.Image(
+        width: thumbnail.width,
+        height: thumbnail.height,
+      )
+        ..clear(
+          img.ColorRgb8(255, 255, 255),
+        );
+
+      thumbnail = img.compositeImage(
+        imageDst,
+        thumbnail,
+      );
+    }
+
+    File("thumbnail.jpg").writeAsBytesSync(
+      img.encodeJpg(thumbnail),
+    );
   }
 
   void chooseFilePopUp() {
